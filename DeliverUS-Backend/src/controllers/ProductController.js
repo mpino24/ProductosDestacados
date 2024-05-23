@@ -1,4 +1,4 @@
-import { Product, Order, Restaurant, RestaurantCategory, ProductCategory } from '../models/models.js'
+import { sequelizeSession, Product, Order, Restaurant, RestaurantCategory, ProductCategory } from '../models/models.js'
 import Sequelize from 'sequelize'
 
 const indexRestaurant = async function (req, res) {
@@ -52,6 +52,30 @@ const update = async function (req, res) {
     const updatedProduct = await Product.findByPk(req.params.productId)
     res.json(updatedProduct)
   } catch (err) {
+    res.status(500).send(err)
+  }
+}
+const promote = async function (req, res) {
+  const t = await sequelizeSession.transaction()
+  try {
+    const productA = await Product.findOne({ where: { restaurantId: req.params.restaurantId, promoted: true } })
+    if (productA) {
+      await Product.update(
+        { promoted: false },
+        { where: { id: productA.id } },
+        { transaction: t }
+      )
+    }
+    await Product.update(
+      { promoted: true },
+      { where: { id: req.params.productId } },
+      { transaction: t }
+    )
+    await t.commit()
+    const product = await Product.findByPk(req.params.productId)
+    res.json(product)
+  } catch (err) {
+    await t.rollback()
     res.status(500).send(err)
   }
 }
@@ -113,6 +137,7 @@ const ProductController = {
   create,
   update,
   destroy,
-  popular
+  popular,
+  promote
 }
 export default ProductController
